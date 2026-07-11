@@ -6,11 +6,12 @@ Stress drop represents the change in average shear stress on a fault plane durin
 
 This repository contains four main function:
 1. signal_preprocessing.py
+   
    This function is a standard data-cleaning pipeline for earthquake data (seismograms) using the ObsPy library. It includes demean, tapering,       filtering, remove instrument response, and merge and fill the gaps.
-2. taup_predicted_arivals1.py
-3. cross_correlation_function.py
+3. taup_predicted_arivals1.py
+4. cross_correlation_function.py
    This Python function, calc_xc, calculates the Normalized Cross-Correlation between two seismic waveforms (tr1 and tr2) around specific            arrival time marks (pick1 and pick2).
-4. phscoh.py
+5. phscoh.py
 
 **Pipeline workflow**
 
