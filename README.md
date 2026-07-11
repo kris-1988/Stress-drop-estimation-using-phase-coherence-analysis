@@ -11,7 +11,23 @@ This repository contains four main function:
 3. taup_predicted_arivals1.py
 4. cross_correlation_function.py
    This Python function, calc_xc, calculates the Normalized Cross-Correlation between two seismic waveforms (tr1 and tr2) around specific            arrival time marks (pick1 and pick2).
-5. phscoh.py
+
+   The inputs are:
+
+   tr1 (ObsPy Trace object): The first seismic waveform.
+
+   tr2 (ObsPy Trace object): The second seismic waveform.
+
+   pick1 (ObsPy UTCDateTime): The estimated arrival time of the wave on tr1.
+
+   pick2 (ObsPy UTCDateTime): The estimated arrival time of the wave on tr2.
+
+   before_t_pick (float/int): How many seconds before the pick time the window should start.
+
+   after_t_pick (float/int): How many seconds after the pick time the window should end.
+
+   max_shift (float/int): The maximum amount of time shift which the algorithm searches for the alignment between two waveforms.
+6. phscoh.py
 
 **Pipeline workflow**
 
