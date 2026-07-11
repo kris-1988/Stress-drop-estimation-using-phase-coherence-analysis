@@ -1,4 +1,4 @@
-# Stress-drop-estimation-using-phase-coherence-analysis
+# Stress drop estimation using phase coherence analysis.
 
 This repository contains a Jupyter notebook-Python-based data processing pipeline to estimate earthquake stress drop using the **inter-station phase coherence method** based on the methodology outlined by **Hawthonre (2019)** (**GJI**).
 
