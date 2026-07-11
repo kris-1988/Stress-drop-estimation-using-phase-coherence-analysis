@@ -6,28 +6,9 @@ Stress drop represents the change in average shear stress on a fault plane durin
 
 This repository contains four main function:
 1. signal_preprocessing.py
-   
-   This function is a standard data-cleaning pipeline for earthquake data (seismograms) using the ObsPy library. It includes demean, tapering,       filtering, remove instrument response, and merge and fill the gaps.
-3. taup_predicted_arivals1.py
-4. cross_correlation_function.py
-   This Python function, calc_xc, calculates the Normalized Cross-Correlation between two seismic waveforms (tr1 and tr2) around specific            arrival time marks (pick1 and pick2).
-
-   The inputs are:
-
-   tr1 (ObsPy Trace object): The first seismic waveform.
-
-   tr2 (ObsPy Trace object): The second seismic waveform.
-
-   pick1 (ObsPy UTCDateTime): The estimated arrival time of the wave on tr1.
-
-   pick2 (ObsPy UTCDateTime): The estimated arrival time of the wave on tr2.
-
-   before_t_pick (float/int): How many seconds before the pick time the window should start.
-
-   after_t_pick (float/int): How many seconds after the pick time the window should end.
-
-   max_shift (float/int): The maximum amount of time shift which the algorithm searches for the alignment between two waveforms.
-6. phscoh.py
+2. taup_predicted_arivals1.py
+3. cross_correlation_function.py
+4. phscoh.py
 
 **Pipeline workflow**
 
