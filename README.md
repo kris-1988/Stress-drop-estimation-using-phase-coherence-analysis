@@ -32,10 +32,10 @@ This step is to process the reference earthquake: the smaller earthquake that we
 The spatial visualisation of the target earthquake, reference earthquake, and the seismic network used in the analysis.
 
 ## 4. Onset pick time correction
-This section is to refine the pick time of onset detection between target and reference seismogram by implementing cross-correlation pic correction technique.
+This section is to refine the pick time of onset detection between target and reference seismograms by implementing cross-correlation pick correction technique.
 
 ## 5. Final signal selection
-In this section, the final seismogram for phase-coherence analysis are selected by imposing SNR and cross-correlation factor criteria.
+In this section, the final seismograms for phase-coherence analysis are selected by imposing SNR and cross-correlation factor criteria.
 
 ## 6. Phase Coherence
 In this section, interstation phase coherence is calculated.
