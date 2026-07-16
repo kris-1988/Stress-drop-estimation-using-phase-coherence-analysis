@@ -1,6 +1,6 @@
 # Stress-drop-estimation-using-phase-coherence-analysis
 
-This repository contains a Jupyter notebook-Python-based data processing pipeline to estimate earthquake stress drop using the **inter-station phase coherence method** based on the methodology outlined by **Hawthonre (2019)** (**GJI**).
+This repository contains a Jupyter notebook-Python-based data processing pipeline to estimate earthquake stress drop using the **inter-station phase coherence method** based on the methodology outlined by **Hawthonre (2019)** [(**GJI**)](https://doi.org/10.1093/gji/ggy429).
 
 Stress drop represents the change in average shear stress on a fault plane during an earthquake rupture. This workflow isolates the earthquake source properties from path effects by implementing an Empirical Green's Function (EGF) approach using a collocated target and reference earthquake pair. 
 
