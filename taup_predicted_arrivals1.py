@@ -3,6 +3,10 @@ from obspy.taup import TauPyModel
 from obspy.geodetics import locations2degrees
 import numpy as np
 
+# predict_arrivals, calculates the theoretical travel time (in seconds) for the very first P-wave (compressional wave) 
+# to travel from an earthquake's source to seismic stations.
+# It uses a 1D velocity model.
+
 def predict_arrivals (eq_loc, invh):
     
     """ Function to predict theoretical travel time using TauP Obspy, and automatic phase detections
