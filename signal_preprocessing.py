@@ -4,6 +4,10 @@ from obspy import read
 from obspy import UTCDateTime
 import matplotlib.pyplot as plt
 
+# This function is a standard data-cleaning pipeline for earthquake data (seismograms) using the ObsPy library. 
+# It includes demean, tapering, filtering, remove instrument response, and merge and fill the gaps.
+# sig = signal
+# flm = filter
 
 def signal_preprocessing_1 (sig, flm= [0.8,18.0]):
     #[0.8,18.0]
