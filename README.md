@@ -1,10 +1,10 @@
 # Stress-drop-estimation-using-phase-coherence-analysis
 
-This repository contains a Jupyter notebook-Python-based data processing pipeline to estimate earthquake stress drop using the **inter-station phase coherence method** based on the methodology outlined by **Hawthonre (2019)** [(**GJI**)](https://doi.org/10.1093/gji/ggy429).
+This repository contains a Jupyter notebook-Python-based data processing pipeline to estimate earthquake stress drop using the **inter-station phase coherence method** based on the methodology outlined by **Hawthorne (2019)** [(**GJI**)](https://doi.org/10.1093/gji/ggy429).
 
 Stress drop represents the change in average shear stress on a fault plane during an earthquake rupture. This workflow isolates the earthquake source properties from path effects by implementing an Empirical Green's Function (EGF) approach using a collocated target and reference earthquake pair. 
 
-This repository contains four main function:
+This repository contains four main functions:
 1. signal_preprocessing.py
 2. taup_predicted_arivals1.py
 3. cross_correlation_function.py
@@ -35,7 +35,7 @@ The spatial visualisation of the target earthquake, reference earthquake, and th
 This section is to refine the pick time of onset detection between target and reference seismogram by implementing cross-correlation pic correction technique.
 
 ## 5. Final signal selection
-In this section, the final seismogram for phase-coherence analysis are selected by imposing SNR and cross-correlation factor criteria.
+In this section, the final seismograms for phase-coherence analysis are selected by imposing SNR and cross-correlation factor criteria.
 
 ## 6. Phase Coherence
 In this section, interstation phase coherence is calculated.
