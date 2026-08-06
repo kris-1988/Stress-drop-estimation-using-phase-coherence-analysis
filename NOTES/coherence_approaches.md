@@ -2,6 +2,14 @@
 
 We want to consider several forms of coherence and coherent energy that we can compute from the frequency-domain seismograms.
 
+We can consider computing five related frequency-domain measures for each station pair:
+
+- Normalized phase coherence, $C_p$
+- Unnormalized coherent energy, $E_u$
+- Absolute unnormalized energy, $E_u^{\mathrm{abs}}$
+- Coherent energy ratio, $E_r$
+- Absolute energy ratio, $E_r^{\mathrm{abs}}$
+
 ## General notes
 
 First, we may note a few frequency-domain properties about observed seismograms.  A hat denotes a Fourier transform evaluated at angular frequency $\omega$.
@@ -101,8 +109,6 @@ $$
 \left\langle E_p\right\rangle\approx 0.
 $$
 
-
-
 ## Unnormalized coherent energy $E_u$
 
 For a pair of stations $k$ and $l$, the unnormalized coherent-energy is
@@ -152,9 +158,32 @@ $$
 \left\langle E_p\right\rangle\approx 0.
 $$
 
+## Absolute unnormalized energy $E_u^{\mathrm{abs}}$
+
+For a pair of stations $k$ and $l$, define
+
+$$
+E_u^{\mathrm{abs}}
+=
+|\hat d_{1k}|\,|\hat d_{2k}|\,
+|\hat d_{1l}|\,|\hat d_{2l}|.
+$$
+
+If the earthquakes share the same Green's functions,
+
+$$
+E_u^{\mathrm{abs}}
+=
+|\hat{s}_{1k}|\,|\hat{s}_{2k}|\,
+|\hat{s}_{1l}|\,|\hat{s}_{2l}|\,
+|\hat g_k|^2|\hat g_l|^2.
+$$
+
+This provides an estimate of the product of the energy in the source time functions, weighted by the Green's-function power.
 
 
-## Energy ratio $E_r$
+
+## Coherent energy ratio $E_r$
 
 The coherent energy ratio is
 
@@ -211,3 +240,45 @@ $$
 \left\langle E_r\right\rangle\approx 0.
 $$
 
+## Absolute energy ratio $E_r^{\mathrm{abs}}$
+
+For a pair of stations $k$ and $l$, define
+
+$$
+E_r^{\mathrm{abs}}
+=
+\left|
+\frac{
+\hat d_{1k}\hat d_{2k}^{*}
+\hat d_{1l}^{*}\hat d_{2l}
+}{
+|\hat d_{1k}|^{2}|\hat d_{1l}|^{2}
+}
+\right|.
+$$
+
+This simplifies to
+
+$$
+E_r^{\mathrm{abs}}
+=
+\frac{
+|\hat d_{2k}|\,|\hat d_{2l}|
+}{
+|\hat d_{1k}|\,|\hat d_{1l}|
+}.
+$$
+
+If the earthquakes share the same Green's functions,
+
+$$
+E_r^{\mathrm{abs}}
+=
+\frac{
+|\hat s_{2k}|\,|\hat s_{2l}|
+}{
+|\hat s_{1k}|\,|\hat s_{1l}|
+}.
+$$
+
+This provides an estimate of the spectral-energy ratio of earthquake 2 relative to earthquake 1, with the Green's-function power cancelled.
