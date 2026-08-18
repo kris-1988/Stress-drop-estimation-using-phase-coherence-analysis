@@ -40,14 +40,14 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
     :return  xc:  an xcross instance, with at least values
     :            xc:  cross-correlations for each station 
                          dimensions 0: frequency, 1: station, 2: taper
-    :           amp:  amplitudes of earthquake intervals
+    :           powr:  amplitudes power of earthquake intervals
                          dimensions 0: frequency, 1: station,  
                                     2: taper, 3: 2 earthquakes
     :           xcn:  cross-correlations for each station, 
                          with noise added, averaged over tapers
                          dimensions 0: frequency, 1: station, 
                                     2: noise intervals
-    :          ampn:  amplitudes in noise intervals
+    :          powrn:  amplitudes power in noise intervals
                          dimensions 0: frequency, 1: station, 
                                     2: earthquakes, 3: noise intervals
     :          freq:  frequencies in Hz
@@ -194,10 +194,10 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
     xcn = np.zeros([len(freq),len(nsc),len(nsint)],complex)
     
     # initialize power in main window
-    amp = np.zeros([len(freq),len(nsc),Nt,2],float)
+    powr = np.zeros([len(freq),len(nsc),Nt,2],float)
 
     # initialize power in earlier windows
-    ampn = np.zeros([len(freq),len(nsc),2,len(nsint)],float)
+    powrn = np.zeros([len(freq),len(nsc),2,len(nsint)],float)
 
     # initialize Fourier-transformed observations
     obsft = np.zeros([len(freq),len(nsc),Nt,2],complex)
@@ -271,7 +271,7 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
         data2=data2.data[0:N]
         
         # to keep track of power
-        amp1,amp2=np.zeros(Nfs),np.zeros(Nfs)
+        powr1,powr2=np.zeros(Nfs),np.zeros(Nfs)
 
         for k in range(0,Nt):
             # times the taper
@@ -291,8 +291,8 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
             xc[:,m,k]=np.multiply(xci,phsshf)
 
             # keep track of amplitudes
-            amp[:,m,k,0]=np.real(np.multiply(data1i[ix],data1i.conj()[ix]))
-            amp[:,m,k,1]=np.real(np.multiply(data2i[ix],data2i.conj()[ix]))
+            powr[:,m,k,0]=np.real(np.multiply(data1i[ix],data1i.conj()[ix]))
+            powr[:,m,k,1]=np.real(np.multiply(data2i[ix],data2i.conj()[ix]))
 
         for n in range(0,len(nsint)):
 
@@ -312,7 +312,7 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
 
             # initialize x-c and amplitudes---will average over tapers
             xci = np.zeros(Nfs)
-            amp1,amp2=np.zeros(Nfs),np.zeros(Nfs)
+            powr1,powr2=np.zeros(Nfs),np.zeros(Nfs)
 
             for k in range(0,Nt):
                 # for amplitude tracking
@@ -320,8 +320,8 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
                 data2i=np.multiply(U[:,k],datan2)
                 data1i = np.fft.rfft(data1i,Nf)
                 data2i = np.fft.rfft(data2i,Nf)
-                amp1=amp1+np.real(np.multiply(data1i[ix],data1i.conj()[ix]))
-                amp2=amp2+np.real(np.multiply(data2i[ix],data2i.conj()[ix]))
+                powr1=powr1+np.real(np.multiply(data1i[ix],data1i.conj()[ix]))
+                powr2=powr2+np.real(np.multiply(data2i[ix],data2i.conj()[ix]))
 
                 # and for the noise in the cross-correlation
 
@@ -339,12 +339,12 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
             # save
             xci = np.multiply(xci,phsshf)
             xcn[:,m,n] = xci/Nt
-            ampn[:,m,0,n]=amp1/Nt
-            ampn[:,m,1,n]=amp2/Nt
+            powrn[:,m,0,n]=powr1/Nt
+            powrn[:,m,1,n]=powr2/Nt
 
     #-----------------COLLECT FOR OUTPUT--------------------------------
 
-    xc=xcross({'xc':xc,'xcn':xcn,'amp':amp,'ampn':ampn,'freq':freq,
+    xc=xcross({'xc':xc,'xcn':xcn,'powr':powr,'powrn':powrn,'freq':freq,
                'nsc':nsc,'tlm':trange,'starttime1':starttime1,
                'starttime2':starttime2,'dtim':dt,'fmax':fmax,
                'obsft':obsft,'dfres':dfres,
@@ -391,14 +391,14 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
     :return      xc:  an xcross instance, with at least values
     :            xc:  cross-correlations for each station 
                          dimensions 0: frequency, 1: station, 2: taper
-    :           amp:  amplitudes of earthquake intervals
+    :           powr:  amplitudes power of earthquake intervals
                          dimensions 0: frequency, 1: station,  
                                     2: taper, 3: 2 earthquakes
     :           xcn:  cross-correlations for each station, 
                          with noise added, averaged over tapers
                          dimensions 0: frequency, 1: station, 
                                     2: noise intervals
-    :          ampn:  amplitudes in noise intervals
+    :          powrn:  amplitudes power in noise intervals
                          dimensions 0: frequency, 1: station, 
                                     2: earthquakes, 3: noise intervals
     :          freq:  frequencies in Hz
@@ -531,10 +531,10 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
     xcn = np.zeros([len(freq),len(nsc),len(nsint)],complex)
     
     # initialize power in main window
-    amp = np.zeros([len(freq),len(nsc),Nt,2],float)
+    powr = np.zeros([len(freq),len(nsc),Nt,2],float)
 
     # initialize power in earlier windows
-    ampn = np.zeros([len(freq),len(nsc),2,len(nsint)],float)
+    powrn = np.zeros([len(freq),len(nsc),2,len(nsint)],float)
 
     # keep track of start times
     starttime1=np.ndarray([len(nsc)],dtype=float)
@@ -637,8 +637,8 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
         # cross-correlate the template with itself
         data1i=np.fft.rfft(data1.data,n=Nfi)
         data2i=np.fft.rfft(bata1.data,n=Nfi)
-        amp1=np.multiply(data2i,data1i.conj())
-        amp1=np.fft.irfft(amp1)
+        powr1=np.multiply(data2i,data1i.conj())
+        powr1=np.fft.irfft(powr1)
 
         # compute the times relative to zero
         tm1,tm2=data1.stats.starttime,bata1.stats.starttime
@@ -647,14 +647,14 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
         # time when the two are aligned
         tal=dt1-dt2
         ial=int(np.round(tal/dt))
-        amp1=amp1[(iwin+ial) % amp1.size]
+        powr1=powr1[(iwin+ial) % powr1.size]
 
         #--------------------------------------------------------
         # cross-correlate the 2nd event with itself
         data1i=np.fft.rfft(bata2.data,n=Nfi)
         data2i=np.fft.rfft(data2.data,n=Nfi)
-        amp2=np.multiply(data2i,data1i.conj())
-        amp2=np.fft.irfft(amp2)
+        powr2=np.multiply(data2i,data1i.conj())
+        powr2=np.fft.irfft(powr2)
 
         # compute the times relative to zero
         tm1,tm2=bata2.stats.starttime,data2.stats.starttime
@@ -663,7 +663,7 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
         # time when the two are aligned
         tal=dt1-dt2
         ial=int(np.round(tal/dt))
-        amp2=amp2[(iwin+ial) % amp2.size]
+        powr2=powr2[(iwin+ial) % powr2.size]
 
         # de-mean?
         #xci=xci-np.mean(xci)
@@ -671,30 +671,30 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
         # taper
         Ntap=U.shape[1]
         xci=np.multiply(xci.reshape([xci.size,1]),U)
-        amp1=np.multiply(amp1.reshape([amp1.size,1]),U)
-        amp2=np.multiply(amp2.reshape([amp2.size,1]),U)
+        powr1=np.multiply(powr1.reshape([powr1.size,1]),U)
+        powr2=np.multiply(powr2.reshape([powr2.size,1]),U)
 
         # center the zero
         xci=np.roll(np.append(xci,np.zeros([Nwin,Ntap]),axis=0),-int((Nwin-1)/2))
-        amp1=np.roll(np.append(amp1,np.zeros([Nwin,Ntap]),axis=0),-int((Nwin-1)/2))
-        amp2=np.roll(np.append(amp2,np.zeros([Nwin,Ntap]),axis=0),-int((Nwin-1)/2))
+        powr1=np.roll(np.append(powr1,np.zeros([Nwin,Ntap]),axis=0),-int((Nwin-1)/2))
+        powr2=np.roll(np.append(powr2,np.zeros([Nwin,Ntap]),axis=0),-int((Nwin-1)/2))
 
         # compute the FT
         xci=np.fft.rfft(xci,n=Nf,axis=0)
         xci=xci[ix,:]
 
-        amp1=np.fft.rfft(amp1,n=Nf,axis=0)
-        amp1=amp1[ix,:]
+        powr1=np.fft.rfft(powr1,n=Nf,axis=0)
+        powr1=powr1[ix,:]
 
-        amp2=np.fft.rfft(amp2,n=Nf,axis=0)
-        amp2=amp2[ix,:]
+        powr2=np.fft.rfft(powr2,n=Nf,axis=0)
+        powr2=powr2[ix,:]
         
         # save x-c
         xc[:,m,:]=np.multiply(xci,phsshf.reshape([freq.size,1]))
 
         # keep track of amplitudes
-        amp[:,m,:,0]=np.abs(amp1)
-        amp[:,m,:,1]=np.abs(amp2)
+        powr[:,m,:,0]=np.abs(powr1)
+        powr[:,m,:,1]=np.abs(powr2)
 
         for n in range(0,len(nsint)):
 
@@ -708,7 +708,7 @@ def calcxctim(st1,st2=None,trange=None,mk1='t6',mk2=None,
 
     #-----------------COLLECT FOR OUTPUT--------------------------------
 
-    xc=xcross({'xc':xc,'xcn':xcn,'amp':amp,'ampn':ampn,'freq':freq,
+    xc=xcross({'xc':xc,'xcn':xcn,'powr':powr,'powrn':powrn,'freq':freq,
                'nsc':nsc,'tlm':trange,'starttime1':starttime1,
                'starttime2':starttime2,'dtim':dt,'fmax':fmax,
                'dfres':dfres,'mk1':mk1,'mk2':mk2,'stloc':stloc,
@@ -761,7 +761,7 @@ class xcross:
 
         # reshape the inputs
         self.xc=self.xc.reshape([self.Nf,self.Nobs,self.Ntap])
-        self.amp=self.amp.reshape([self.Nf,self.Nobs,self.Ntap,2])
+        self.powr=self.powr.reshape([self.Nf,self.Nobs,self.Ntap,2])
 
         # if the input included a pair, grab that info
         if pr is not None:
@@ -783,10 +783,10 @@ class xcross:
 
         # amplitudes
         try:
-            self.ampdata=self.amp
+            self.powrdata=self.powr
         except:
-            self.ampdata=np.ones([self.Nf,self.Nobs,2],dtype=float)
-            self.ampdata.fill(np.nan)
+            self.powrdata=np.ones([self.Nf,self.Nobs,2],dtype=float)
+            self.powrdata.fill(np.nan)
 
         # cross-correlations with noise
         try:
@@ -797,10 +797,10 @@ class xcross:
 
         # amplitude of noise intervals
         try:
-            self.ampndata = self.ampn
+            self.powrndata = self.powrn
         except:
-            self.ampndata = np.ones([self.Nf,self.Nobs,2,0],dtype=float)
-            self.ampndata.fill(np.nan)
+            self.powrndata = np.ones([self.Nf,self.Nobs,2,0],dtype=float)
+            self.powrndata.fill(np.nan)
 
         # average over stations, not components
         self.avtype = 'station'
@@ -1098,8 +1098,8 @@ class xcross:
             # just copy the original
             self.xc = self.xcdata
             self.xcn = self.xcndata
-            self.amp = self.ampdata
-            self.ampn = self.ampndata
+            self.powr = self.powrdata
+            self.powrn = self.powrndata
 
         # set number of stations
         if self.xc.ndim>=2:
@@ -1168,7 +1168,7 @@ class xcross:
         # just the unique stations
         self.ns = np.unique(self.nsa)
         
-        # need to re-organize xc, xcn, amp, ampn
+        # need to re-organize xc, xcn, powr, powrn
 
         # create them all
         shp=list(self.xc.shape)
@@ -1179,13 +1179,13 @@ class xcross:
         shp[1]=len(self.ns)
         self.xcn=np.zeros(shp,dtype=complex)
 
-        shp=list(self.amp.shape)
+        shp=list(self.powr.shape)
         shp[1]=len(self.ns)
-        self.amp=np.zeros(shp,dtype=float)
+        self.powr=np.zeros(shp,dtype=float)
 
-        shp=list(self.ampn.shape)
+        shp=list(self.powrn.shape)
         shp[1]=len(self.ns)
-        self.ampn=np.zeros(shp,dtype=float)
+        self.powrn=np.zeros(shp,dtype=float)
 
         # sum contributions
         for k in range(0,len(self.ns)):
@@ -1193,8 +1193,8 @@ class xcross:
             for m in ii:
                 self.xc[:,k,:]=self.xc[:,k,:]+self.xcdata[:,m,:]
                 self.xcn[:,k,:]=self.xcn[:,k,:]+self.xcndata[:,m,:]
-                self.amp[:,k,:,:]=self.amp[:,k,:,:]+self.ampdata[:,m,:,:]
-                self.ampn[:,k,:,:]=self.ampn[:,k,:,:]+self.ampndata[:,m,:,:]
+                self.powr[:,k,:,:]=self.powr[:,k,:,:]+self.powrdata[:,m,:,:]
+                self.powrn[:,k,:,:]=self.powrn[:,k,:,:]+self.powrndata[:,m,:,:]
 
     def calcdirxc(self):
         """
@@ -1285,7 +1285,7 @@ class xcross:
             self.igrp=igrp
 
         self.Pca,self.Pc,self.Pcrng,self.Pta,self.Pt,self.Pda,self.Pd=\
-           calcPc(self.xc,self.amp,igrp=self.igrp,tix=self.tix)
+           calcPc(self.xc,self.powr,igrp=self.igrp,tix=self.tix)
 
     def subpnamp(self,igrp=None):
         """
@@ -1297,11 +1297,11 @@ class xcross:
             self.igrp=igrp
 
         # divide noise by the template
-        Pn=np.mean(self.ampn[:,:,0,:],axis=2)
-        Pn=np.divide(Pn,np.mean(self.amp[:,:,:,0],axis=2))
+        Pn=np.mean(self.powrn[:,:,0,:],axis=2)
+        Pn=np.divide(Pn,np.mean(self.powr[:,:,:,0],axis=2))
 
         # average over all
-        Ns = self.ampn.shape[1]
+        Ns = self.powrn.shape[1]
         if Ns>=1:
             self.Pna=np.mean(Pn,axis=1)
         else:
@@ -1334,14 +1334,14 @@ class xcross:
         xc = np.abs(xc)
 
         # divide noise by the template
-        xc = np.divide(xc,np.mean(self.amp[:,:,:,0],axis=2).reshape(shp))
+        xc = np.divide(xc,np.mean(self.powr[:,:,:,0],axis=2).reshape(shp))
 
         # square and average over noise intervals
         xc = np.power(xc,2)
         xc = np.mean(xc,axis=2)
 
         # average over all
-        Ns = self.ampn.shape[1]
+        Ns = self.powrn.shape[1]
         if Ns>=1:
             self.Pna=np.mean(xc,axis=1)
         else:
@@ -1366,7 +1366,7 @@ class xcross:
         if igrp is not None:
             self.igrp=igrp
 
-        self.Ra,self.R,self.Rrng=calcmvout(self.xc,self.amp,
+        self.Ra,self.R,self.Rrng=calcmvout(self.xc,self.powr,
                                            igrp=self.igrp,tix=self.tix)
 
         # calculate percentages
@@ -1419,7 +1419,7 @@ class xcross:
 
         # calculate
         self.Ec,self.Et=\
-            calcenfrc(self.xc,self.amp,self.ampn,igrp=self.igrp)
+            calcenfrc(self.xc,self.powr,self.powrn,igrp=self.igrp)
 
         # fraction
         self.Ecfrc = np.divide(self.Ec,self.Et)
@@ -1455,9 +1455,9 @@ class xcross:
         else:
             # extract the relevant portions of the data
             self.xcdata=self.xcdata[:,self.igrp,:]
-            self.ampdata=self.ampdata[:,self.igrp,:,:]
+            self.powrdata=self.powrdata[:,self.igrp,:,:]
             self.xcndata=self.xcndata[:,self.igrp,:]
-            self.ampndata=self.ampndata[:,self.igrp,:,:]
+            self.powrndata=self.powrndata[:,self.igrp,:,:]
 
             # stations, number of observations
             self.Nobs=self.igrp.size
@@ -1483,14 +1483,14 @@ class xcross:
         """
 
         # average signal plus noise over tapers
-        Nf,Ns,Nt,Ne=self.amp.shape
-        sgn = np.mean(self.amp,axis=2).reshape([Nf,Ns,Ne])
+        Nf,Ns,Nt,Ne=self.powr.shape
+        sgn = np.mean(self.powr,axis=2).reshape([Nf,Ns,Ne])
 
         # average noise
-        if self.ampn.ndim>3:
-            ns = np.mean(self.ampn,axis=3).reshape([Nf,Ns,Ne])
+        if self.powrn.ndim>3:
+            ns = np.mean(self.powrn,axis=3).reshape([Nf,Ns,Ne])
         else:
-            ns = self.ampn
+            ns = self.powrn
 
         # noise to signal plus noise
         nrat = np.real(np.divide(ns,sgn))
@@ -1518,11 +1518,10 @@ class xcross:
         # also need to save signal ratio averaged over events
         self.S=np.multiply(self.srat[:,:,0],self.srat[:,:,1])
 
-def calcmvout(xc,amp,igrp=None,tix=None):
+def calcmvout(xc,powr,igrp=None,tix=None):
     """
     :param     xc:  cross-correlations, or other values
-    :param    amp:  amplitudes of individual components 
-                       (not currently used)
+    :param    powr:  power spectral densities of individual components
     :param   igrp:  extra station pairs to calculate, if desired
     :param    tix:  indices of the tapers to use
     :return     r:  averaged radii, over all stations
@@ -1577,10 +1576,10 @@ def calcmvout(xc,amp,igrp=None,tix=None):
     xc_unnorm = xc.copy()
 
     # note an x-c for the energy ratio
-    # amp already contains |d1|**2
-    amp1_power = np.mean(amp[:, :, tix, 0], axis=2)
-    amp1_power = amp1_power.reshape([Nf,Ns])
-    xc_ratio = np.divide(xc,amp1_power)
+    # powr already contains |d1|**2
+    powr1_power = np.mean(powr[:, :, tix, 0], axis=2)
+    powr1_power = powr1_power.reshape([Nf,Ns])
+    xc_ratio = np.divide(xc,powr1_power)
 
     # average for specified station groups
     ri=np.abs(np.mean(xc[:,igrp],axis=1))
@@ -1609,11 +1608,10 @@ def calcmvout(xc,amp,igrp=None,tix=None):
     # return radii
     return r,ri,ru
 
-def calcPc(xc,amp,igrp=None,tix=None):
+def calcPc(xc,powr,igrp=None,tix=None):
     """
     :param     xc:  cross-correlations, or other values
-    :param    amp:  amplitudes of individual components 
-                       (not currently used)
+    :param    powr:  power spectral densities of individual components
     :param   igrp:  extra station pairs to calculate, if desired
     :param    tix:  indices of the tapers to use
     :return     r:  averaged radii, over all stations
@@ -1632,22 +1630,22 @@ def calcPc(xc,amp,igrp=None,tix=None):
 
         # just some
         xc = xc[:,:,tix]
-        amp = amp[:,:,tix,0]
+        powr = powr[:,:,tix,0]
         Nt = xc.shape[2]
 
         # to keep for uncertainties
         xct = xc
-        ampt = amp
+        powrt = powr
 
         # and average
         xc = np.mean(xc,axis=2)
-        amp = np.mean(amp,axis=2)
+        powr = np.mean(powr,axis=2)
     else:
         # just one taper to use
         Nt=1
         if tix is None:
             tix=np.arange(0,Nt)
-        amp=amp[:,:,0,0]
+        powr=powr[:,:,0,0]
     
     # number of stations
     if xc.ndim>=2:
@@ -1663,7 +1661,7 @@ def calcPc(xc,amp,igrp=None,tix=None):
     Nf=xc.shape[0]
 
     # normalize by the template amplitude
-    xc = np.divide(xc,amp)
+    xc = np.divide(xc,powr)
 
     # to a convenient shape
     xc = xc.reshape([Nf,Ns])
@@ -1707,13 +1705,13 @@ def calcPc(xc,amp,igrp=None,tix=None):
         Nu = 1000
         pcu = np.ndarray([Nf,Nu],dtype=float)
         xct = xct[:,igrp,:]
-        ampt = ampt[:,igrp,:]
+        powrt = powrt[:,igrp,:]
         Nsi = len(igrp)
         for k in range(0,Nu):
             ii = np.random.choice(Nt,Nt)
             xci = np.mean(xct[:,:,ii],axis=2)
-            ampi = np.mean(ampt[:,:,ii],axis=2)
-            xci = np.divide(xci,ampi)
+            powri = np.mean(powrt[:,:,ii],axis=2)
+            xci = np.divide(xci,powri)
             r1=np.power(np.abs(np.sum(xci,axis=1)),2)
             r2=np.sum(np.power(np.abs(xci),2),axis=1)
             pcu[:,k]=1/Ng/(Ng-1)*(r1-r2)
@@ -1726,10 +1724,10 @@ def calcPc(xc,amp,igrp=None,tix=None):
     return pc,pci,pcu,pt,pti,pd,pdi
 
 
-def calcmvoutold(xc,amp=None,igrp=None):
+def calcmvoutold(xc,powr=None,igrp=None):
     """
     :param     xc:  cross-correlations, or other values
-    :param    amp:  not used
+    :param    powr:  not used
     :param   igrp:  extra station pairs to calculate, if desired
     :return     r:  averaged radii, over all stations
     :return    ri:  averaged radii, for the specified station pairs
