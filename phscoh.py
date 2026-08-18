@@ -1573,6 +1573,15 @@ def calcmvout(xc,amp,igrp=None,tix=None):
     # to a convenient shape
     xc = xc.reshape([Nf,Ns])
 
+    # note an x-c for no normalization
+    xc_unnorm = xc.copy()
+
+    # note an x-c for the energy ratio
+    # amp already contains |d1|**2
+    amp1_power = np.mean(amp[:, :, tix, 0], axis=2)
+    amp1_power = amp1_power.reshape([Nf,Ns])
+    xc_ratio = np.divide(xc,amp1_power)
+
     # average for specified station groups
     ri=np.abs(np.mean(xc[:,igrp],axis=1))
 
