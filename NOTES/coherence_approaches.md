@@ -155,7 +155,7 @@ $$
 then
 
 $$
-\left\langle E_p\right\rangle\approx 0.
+\left\langle E_u\right\rangle\approx 0.
 $$
 
 ## Absolute unnormalized energy $E_u^{\mathrm{abs}}$
