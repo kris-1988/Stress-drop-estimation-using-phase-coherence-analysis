@@ -833,12 +833,30 @@ class xcross:
         if N>1:
             self.Cp = 1./(N-1)*(np.power(self.R,2)*N-1.)
             self.Cplim = 1./(N-1)*(np.power(self.Rlim,2)*N-1.)
+
+            self.Eu = 1./(N-1)*(np.power(self.R_eu,2)*N-1.)
+            self.Eulim = 1./(N-1)*(np.power(self.Rrng_eu,2)*N-1.)
+
+            self.Er = 1./(N-1)*(np.power(self.R_er,2)*N-1.)
+            self.Erlim = 1./(N-1)*(np.power(self.Rrng_er,2)*N-1.)
         else:
             self.Cp = np.ndarray(self.R.size,dtype=float)
             self.Cp.fill(np.nan)
 
             self.Cplim = np.ndarray(self.Rlim.size,dtype=float)
             self.Cplim.fill(np.nan)
+
+            self.Eu = np.ndarray(self.R_eu.size,dtype=float)
+            self.Eu.fill(np.nan)
+
+            self.Eulim = np.ndarray(self.Rrng_eu.shape,dtype=float)
+            self.Eulim.fill(np.nan)
+
+            self.Er = np.ndarray(self.R_er.size,dtype=float)
+            self.Er.fill(np.nan)
+
+            self.Erlim = np.ndarray(self.Rrng_er.shape,dtype=float)
+            self.Erlim.fill(np.nan)
 
     def fitcp(self,fmin=None,fmax=None,nnode=None):
         """
@@ -1366,8 +1384,10 @@ class xcross:
         if igrp is not None:
             self.igrp=igrp
 
-        self.Ra,self.R,self.Rrng=calcmvout(self.xc,self.powr,
-                                           igrp=self.igrp,tix=self.tix)
+        (self.R, self.Ra, self.Rrng,
+         self.R_eu, self.Ra_eu, self.Rrng_eu,
+         self.R_er, self.Ra_er, self.Rrng_er) = calcmvout(
+             self.xc, self.powr, igrp=self.igrp, tix=self.tix)
 
         # calculate percentages
         self.calcrprc()
@@ -1524,8 +1544,15 @@ def calcmvout(xc,powr,igrp=None,tix=None):
     :param    powr:  power spectral densities of individual components
     :param   igrp:  extra station pairs to calculate, if desired
     :param    tix:  indices of the tapers to use
-    :return     r:  averaged radii, over all stations
-    :return    ri:  averaged radii, for the specified station pairs
+    :return     r_cp:  averaged radii for cp, over all stations
+    :return    ri_cp:  averaged radii for cp, for the specified station pairs
+    :return    ru_cp:  taper-bootstrapped radii for cp, for the specified station pairs
+    :return     r_eu:  averaged radii for Eu, over all stations
+    :return    ri_eu:  averaged radii for Eu, for the specified station pairs
+    :return    ru_eu:  taper-bootstrapped radii for Eu, for  the specified station pairs
+    :return     r_er:  averaged radii for Er, over all stations
+    :return    ri_er:  averaged radii for Er, for the specified station pairs
+    :return    ru_er:  taper-bootstrapped radii for Er, for the specified station pairs
     """
 
     # copy to avoid overwriting
@@ -1566,14 +1593,11 @@ def calcmvout(xc,powr,igrp=None,tix=None):
     # number of frequencies
     Nf=xc.shape[0]
 
-    # normalize
-    xc = np.divide(xc,np.abs(xc))
-
     # to a convenient shape
     xc = xc.reshape([Nf,Ns])
 
-    # note an x-c for no normalization
-    xc_unnorm = xc.copy()
+    # normalize
+    xc_norm = np.divide(xc,np.abs(xc))
 
     # note an x-c for the energy ratio
     # powr already contains |d1|**2
@@ -1581,32 +1605,77 @@ def calcmvout(xc,powr,igrp=None,tix=None):
     powr1_power = powr1_power.reshape([Nf,Ns])
     xc_ratio = np.divide(xc,powr1_power)
 
+    #-----Compute the walkout for Cp----------------------
+
     # average for specified station groups
-    ri=np.abs(np.mean(xc[:,igrp],axis=1))
+    ri_cp=np.abs(np.mean(xc_norm[:,igrp],axis=1))
 
     # and for everything
-    r=np.abs(np.mean(xc,axis=1))
+    r_cp=np.abs(np.mean(xc_norm,axis=1))
 
+    Nu=100
     if Nt > 1:
         # if there are multiple tapers, bootstrap them
-        Nu = 1000
-        ru = np.ndarray([Nf,Nu],dtype=float)
-        xct = xct[:,igrp,:]
+        ru_cp = np.ndarray([Nf,Nu],dtype=float)
+        xcth = xct[:,igrp,:]
         Nsi = len(igrp)
         for k in range(0,Nu):
             ii = np.random.choice(Nt,Nt)
-            xci = np.mean(xct[:,:,ii],axis=2)
+            xci = np.mean(xcth[:,:,ii],axis=2)
             xci = np.divide(xci,np.abs(xci))
-            ru[:,k] = np.abs(np.mean(xci,axis=1))
+            ru_cp[:,k] = np.abs(np.mean(xci,axis=1))
     else:
         # just repeat a number of times
-        Nu = 100
-        ru =np.repeat(ri.reshape([ri.size,1]),Nu,axis=1)
+        ru_cp =np.repeat(ri_cp.reshape([ri_cp.size,1]),Nu,axis=1)
 
+    #-----Compute the walkout for Eu: un-normalized energy--
+
+     # average for specified station groups
+    ri_eu=np.abs(np.mean(xc[:,igrp],axis=1))
+
+    # and for everything
+    r_eu=np.abs(np.mean(xc,axis=1))
+
+    if Nt > 1:
+        # if there are multiple tapers, bootstrap them
+        ru_eu = np.ndarray([Nf,Nu],dtype=float)
+        xcth = xct[:,igrp,:]
+        Nsi = len(igrp)
+        for k in range(0,Nu):
+            ii = np.random.choice(Nt,Nt)
+            xci = np.mean(xcth[:,:,ii],axis=2)
+            ru_eu[:,k] = np.abs(np.mean(xci,axis=1))
+    else:
+        # just repeat a number of times
+        ru_eu =np.repeat(ri_eu.reshape([ri_eu.size,1]),Nu,axis=1)   
+
+
+    #-----Compute the walkout for Er: energy ratio--
+
+     # average for specified station groups
+    ri_er=np.abs(np.mean(xc_ratio[:,igrp],axis=1))
+
+    # and for everything
+    r_er=np.abs(np.mean(xc_ratio,axis=1))
+
+    if Nt > 1:
+        # if there are multiple tapers, bootstrap them
+        ru_er = np.ndarray([Nf,Nu],dtype=float)
+        xcth = xct[:,igrp,:]
+        Nsi = len(igrp)
+        for k in range(0,Nu):
+            ii = np.random.choice(Nt,Nt)
+            xci = np.mean(xcth[:,:,ii],axis=2)
+            powri = np.mean(powr[:, igrp, tix[ii], 0], axis=2)
+            xci = np.divide(xci, powri)
+            ru_er[:,k] = np.abs(np.mean(xci,axis=1))
+    else:
+        # just repeat a number of times
+        ru_er =np.repeat(ri_er.reshape([ri_er.size,1]),Nu,axis=1)   
 
 
     # return radii
-    return r,ri,ru
+    return r_cp,ri_cp,ru_cp,r_eu,ri_eu,ru_eu,r_er,ri_er,ru_er
 
 def calcPc(xc,powr,igrp=None,tix=None):
     """
