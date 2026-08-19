@@ -123,7 +123,7 @@ $$
 If the two earthquakes share the same Green's functions,
 
 $$
-E_p=
+E_u=
 \operatorname{Re}\left[
 \hat{s}_{1k}^{*}\hat{s}_{2k}
 \hat{s}_{1l}\hat{s}_{2l}^{*}
@@ -134,7 +134,7 @@ $$
 At low frequencies, where the wavelength is longer than the rupture extent, the ASTFs are approximately the same across stations,
 
 $$
-E_p\propto
+E_u\propto
 |\hat{s}_1|^2|\hat{s}_2|^2,
 $$
 
@@ -155,7 +155,7 @@ $$
 then
 
 $$
-\left\langle E_p\right\rangle\approx 0.
+\left\langle E_u\right\rangle\approx 0.
 $$
 
 ## Absolute unnormalized energy $E_u^{\mathrm{abs}}$
