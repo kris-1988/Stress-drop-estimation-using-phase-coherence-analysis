@@ -40,14 +40,14 @@ def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
     :return  xc:  an xcross instance, with at least values
     :            xc:  cross-correlations for each station 
                          dimensions 0: frequency, 1: station, 2: taper
-    :           powr:  amplitudes power of earthquake intervals
+    :           powr:  power of earthquake intervals
                          dimensions 0: frequency, 1: station,  
                                     2: taper, 3: 2 earthquakes
     :           xcn:  cross-correlations for each station, 
                          with noise added, averaged over tapers
                          dimensions 0: frequency, 1: station, 
                                     2: noise intervals
-    :          powrn:  amplitudes power in noise intervals
+    :          powrn:  power in noise intervals
                          dimensions 0: frequency, 1: station, 
                                     2: earthquakes, 3: noise intervals
     :          freq:  frequencies in Hz
