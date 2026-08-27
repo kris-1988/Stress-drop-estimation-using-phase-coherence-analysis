@@ -91,7 +91,7 @@ $$
 Therefore,
 
 $$
-C_p\propto 1.
+C_p = 1.
 $$
 
 
@@ -106,12 +106,12 @@ $$
 then
 
 $$
-\left\langle E_p\right\rangle\approx 0.
+\left\langle C_p\right\rangle\approx 0.
 $$
 
 ## Unnormalized coherent energy $E_u$
 
-For a pair of stations $k$ and $l$, the unnormalized coherent-energy is
+For a pair of stations $k$ and $l$, the unnormalized coherent energy is
 
 $$
 E_u =
