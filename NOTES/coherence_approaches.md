@@ -189,24 +189,28 @@ The coherent energy ratio is
 
 $$
 E_r =
+\operatorname{Re}\left[
 \frac{
 \hat d_{1k}\hat d_{2k}^{*}
 \hat d_{1l}^{*}\hat d_{2l}
 }{
 |\hat d_{1k}|^{2}|\hat d_{1l}|^{2}
-}.
+}
+\right].
 $$
 
 Using $\hat d_{jk}=\hat s_{jk}\hat g_k$, and assuming the two earthquakes share the same Green's functions,
 
 $$
 E_r =
+\operatorname{Re}\left[
 \frac{
 \hat s_{1k}\hat s_{2k}^{*}
 \hat s_{1l}^{*}\hat s_{2l}
 }{
 |\hat s_{1k}|^{2}|\hat s_{1l}|^{2}
-}.
+}
+\right].
 $$
 
 Here the Green's-functions cancel.
