@@ -1,14 +1,22 @@
 # TODO
 
+# Plan for next time
+
+- Discuss structure of compute_coherence function.  Decide if we like it.
+
+- Figure out one example test to do
+
 
 # To do for next time
 
-- Check the details of the calculations: walkout to cp/eu conversion (calculation approach checked and added to energy_computation markdown)
+
 
 - Check on saving t0 to the miniseed file correctly. (Jess will do this)
 
 
 # To do more generally
+
+- Check the details of the calculations: walkout to cp/eu conversion (calculation approach checked and added to energy_computation markdown)
 
 - Clean up the compute_coherence code a bit
 
