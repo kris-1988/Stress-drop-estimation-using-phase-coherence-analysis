@@ -1377,6 +1377,137 @@ class xcross:
         self.Pl=self.Pt-self.Pn
         self.Pla=self.Pta-self.Pna
 
+    def compute_coherence(self, igrp=None, tix=None,
+                          calculate_cp=True, calculate_eu=True,
+                          calculate_er=True, nboot=100, rng=None):
+        """Compute selected coherence measures for this cross-spectrum object.
+
+        Parameters
+        ----------
+        igrp : array-like, optional
+            Station indices to use. Defaults to the object's station group.
+        tix : array-like, optional
+            Taper indices to use. Defaults to the object's taper selection.
+        calculate_cp, calculate_eu, calculate_er : bool, optional
+            Select which measures to calculate.
+        nboot : int, optional
+            Number of bootstrap samples for each selected measure.
+        rng : numpy.random.Generator, optional
+            Random-number generator used for bootstrap resampling.
+
+        Returns
+        -------
+        dict
+            The selected coherence measures, including values, walkouts,
+            bootstrap results, and mean-power terms where applicable.
+        """
+        if igrp is None:
+            igrp = self.igrp
+        if tix is None:
+            tix = self.tix
+        xc = self.xc
+        powr = self.powr
+        xc = np.asarray(xc)
+        powr = np.asarray(powr)
+        if xc.ndim == 2:
+            xc = xc[:, :, np.newaxis]
+        if powr.ndim != 4:
+            raise ValueError("powr must have shape (Nf, Ns, Nt, 2)")
+    
+        nt = xc.shape[2]
+        if tix is None:
+            tix = np.arange(nt)
+        tix = np.asarray(tix, dtype=int)
+        if igrp is None:
+            igrp = np.arange(xc.shape[1])
+        igrp = np.asarray(igrp, dtype=int)
+        if rng is None:
+            rng = np.random.default_rng()
+    
+        xc_taper = xc[:, :, tix]
+        xc = np.mean(xc_taper, axis=2)
+        powr1_taper = powr[:, :, tix, 0]
+        powr1 = np.mean(powr1_taper, axis=2)
+    
+        def station_stats(values, stations, normalized=False, taper_values=None):
+            selected = values[:, stations]
+            ns = selected.shape[1]
+            if ns <= 1:
+                return (np.full(values.shape[0], np.nan),
+                        np.full(values.shape[0], np.nan),
+                        np.full((values.shape[0], nboot), np.nan))
+            walkout = np.abs(np.mean(selected, axis=1))
+            power = np.mean(np.abs(selected)**2, axis=1)
+            value = (ns * walkout**2 - 1.0) / (ns - 1.0) if normalized else \
+                    (ns * walkout**2 - power) / (ns - 1.0)
+            boot = np.empty((values.shape[0], nboot), dtype=float)
+            if taper_values is None:
+                taper_values = values[:, stations, :]
+            else:
+                taper_values = taper_values[:, stations, :]
+            for iboot in range(nboot):
+                ii = rng.integers(0, taper_values.shape[2], taper_values.shape[2])
+                sample = np.mean(taper_values[:, :, ii], axis=2)
+                if normalized:
+                    sample = sample / np.abs(sample)
+                sample_walkout = np.abs(np.mean(sample, axis=1))
+                sample_power = np.mean(np.abs(sample)**2, axis=1)
+                boot[:, iboot] = ((ns * sample_walkout**2 - 1.0) /
+                                  (ns - 1.0) if normalized else
+                                  (ns * sample_walkout**2 - sample_power) /
+                                  (ns - 1.0))
+            return value, walkout, boot
+    
+        results = {}
+        if calculate_cp:
+            xc_norm = xc / np.abs(xc)
+            xc_norm_taper = xc_taper / np.abs(xc_taper)
+            cp, cp_walkout, cp_boot = station_stats(
+                xc_norm, igrp, normalized=True, taper_values=xc_norm_taper)
+            cp_all, cp_walkout_all, cp_boot_all = station_stats(
+                xc_norm, np.arange(xc.shape[1]), normalized=True,
+                taper_values=xc_norm_taper)
+            results["cp"] = {"value": cp, "walkout": cp_walkout,
+                             "bootstrap": cp_boot, "all_value": cp_all,
+                             "all_walkout": cp_walkout_all,
+                             "all_bootstrap": cp_boot_all}
+    
+        if calculate_eu:
+            eu, eu_walkout, eu_boot = station_stats(
+                xc, igrp, taper_values=xc_taper)
+            eu_all, eu_walkout_all, eu_boot_all = station_stats(
+                xc, np.arange(xc.shape[1]), taper_values=xc_taper)
+            results["eu"] = {"value": eu, "walkout": eu_walkout,
+                             "mean_power": np.mean(np.abs(xc[:, igrp])**2, axis=1),
+                             "bootstrap": eu_boot, "all_value": eu_all,
+                             "all_walkout": eu_walkout_all,
+                             "all_bootstrap": eu_boot_all}
+    
+        if calculate_er:
+            xc_ratio_taper = xc_taper / powr1_taper
+            xc_ratio = xc / powr1
+            er, er_walkout, er_boot = station_stats(
+                xc_ratio, igrp, taper_values=xc_ratio_taper)
+            er_all, er_walkout_all, er_boot_all = station_stats(
+                xc_ratio, np.arange(xc.shape[1]), taper_values=xc_ratio_taper)
+            results["er"] = {"value": er, "walkout": er_walkout,
+                             "mean_power": np.mean(np.abs(xc_ratio[:, igrp])**2,
+                                                    axis=1),
+                             "bootstrap": er_boot, "all_value": er_all,
+                             "all_walkout": er_walkout_all,
+                             "all_bootstrap": er_boot_all}
+    
+        if calculate_cp:
+            self.Cp = results["cp"]["all_value"]
+        if calculate_eu:
+            self.Eu = results["eu"]["all_value"]
+        if calculate_er:
+            self.Er = results["er"]["all_value"]
+
+        return results
+    
+    
+    
     def calcmvout(self,igrp=None):
         """
         to calculate moveout
