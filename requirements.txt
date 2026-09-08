@@ -1,0 +1,22 @@
+# Core scientific stack
+numpy
+scipy
+matplotlib
+pandas
+
+# Notebook interface
+jupyter
+
+# Seismology and waveform processing
+obspy
+
+# Multi-taper spectral analysis used by phscoh.py
+spectrum
+
+# Mapping/plotting used by the notebook.
+# PyGMT also requires a GMT installation outside of pip.
+pygmt
+
+# Local/project modules referenced by the code/notebook are not pip packages:
+# signal_preprocessing, cross_correlation_function, taup_predicted_arrivals1,
+# phscoh, general
