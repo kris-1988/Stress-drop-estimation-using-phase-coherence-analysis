@@ -5,8 +5,8 @@ import os,glob,math,copy
 import general
 import obspy
 import spectrum
-from scipy.interpolate import splrep,splev
 import matplotlib.pyplot as plt
+from scipy.interpolate import splrep,splev
 #from scipy.windows import hann
 
 def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
@@ -1506,9 +1506,222 @@ class xcross:
             self.Er = results["er"]["all_value"]
 
         return results
-    
-    
-    
+
+
+    def Cp_bootstrap(self, igrp=None, tix=None, frac=0.8, nboot=1000,
+                      cutoff=0.5, freqmin=None, rng=None):
+        """
+        Bootstrap Cp(f) and its fall-off frequency by resampling WHICH
+        STATIONS go into the network average, without replacement (a
+        station can't be usefully paired with itself).
+
+        Works directly off self.xc -- an O(Ns) resample, vs. re-running
+        calcxc() from raw waveforms per draw.
+
+        :param     igrp:  station indices to draw from (default: self.igrp)
+        :param      tix:  taper indices to average first (default: self.tix)
+        :param     frac:  fraction of igrp kept per draw (default: 0.8)
+        :param    nboot:  number of bootstrap draws (default: 1000)
+        :param   cutoff:  Cp cutoff defining fall-off frequency (default: 0.5,
+                              matching pickffreq's usual self.cpcutoff)
+        :param  freqmin:  minimum allowed fall-off frequency
+                              (default: 2/window length, via self.tlm;
+                              falls back to 2*self.freq[0] if tlm isn't set)
+        :param      rng:  numpy.random.Generator (default: a fresh one)
+        :return  dict with freq, Cp (fresh point estimate, all of igrp),
+                 Cp_boot [Nf,nboot], ff (point estimate), ff_boot [nboot],
+                 nsub, navail
+        """
+        if igrp is None:
+            igrp = self.igrp
+        igrp = np.asarray(igrp, dtype=int)
+        Navail = len(igrp)
+
+        if tix is None:
+            tix = self.tix
+        tix = np.asarray(tix, dtype=int)
+
+        if rng is None:
+            rng = np.random.default_rng()
+
+        if freqmin is None:
+            try:
+                freqmin = 2./np.diff(self.tlm)[0]
+            except Exception:
+                freqmin = 2.*self.freq[0]
+
+        Nf = len(self.freq)
+
+        if Navail < 2:
+            print('Cp_bootstrap warning: only %d station(s) available -- '
+                  'Cp needs at least 2. Returning NaNs.' % Navail)
+            return dict(freq=self.freq, Cp=np.full(Nf, np.nan),
+                        Cp_boot=np.full((Nf, nboot), np.nan),
+                        ff=np.nan, ff_boot=np.full(nboot, np.nan),
+                        nsub=Navail, navail=Navail)
+
+        nsub = int(np.floor(frac*Navail))
+        if nsub < 2:
+            print('Cp_bootstrap warning: %d%% of %d available station(s) is '
+                  'only %d, not enough to compute Cp. Using all %d stations '
+                  'for every draw instead (bootstrap band will be zero-width).'
+                  % (frac*100, Navail, nsub, Navail))
+            nsub = Navail
+
+        xc_av = np.mean(np.asarray(self.xc)[:, :, tix], axis=2)
+        xc_norm = np.divide(xc_av, np.abs(xc_av))
+
+        def cp_from_stations(ii):
+            walkout = np.abs(np.mean(xc_norm[:, ii], axis=1))
+            n = len(ii)
+            return (n*walkout**2 - 1.)/(n - 1.)
+
+        Cp_point = cp_from_stations(igrp)
+        ff_point = pickffreq(Cp_point, self.freq, cutoff, freqmin)[0]
+
+        Cp_boot = np.empty((Nf, nboot), dtype=float)
+        for iboot in range(nboot):
+            ii = rng.choice(igrp, size=nsub, replace=False)
+            Cp_boot[:, iboot] = cp_from_stations(ii)
+
+        # pickffreq is already vectorized over columns -- one call for
+        # all nboot draws, not a Python loop
+        ff_boot = pickffreq(Cp_boot, self.freq, cutoff, freqmin)
+
+        self.Cp_boot, self.ff_boot, self.nboot_sub = Cp_boot, ff_boot, nsub
+
+        return dict(freq=self.freq, Cp=Cp_point, Cp_boot=Cp_boot,
+                    ff=ff_point, ff_boot=ff_boot, nsub=nsub, navail=Navail)
+
+
+    def energy_bootstrap(self, which=('cp','eu','eu_abs','er','er_abs'),
+                          igrp=None, tix=None, frac=0.8, nboot=1000,
+                          cutoff=0.5, freqmin=None, rng=None):
+        """
+        Station-level bootstrap (without replacement) for any subset of
+        Cp, Eu, Eu_abs, Er, Er_abs. All requested measures share the SAME
+        random station subset on each draw, so they stay internally
+        consistent draw-to-draw rather than each re-randomizing separately.
+
+        Note on Eu_abs / Er_abs: coherence_approaches.md only defines
+        these for a SINGLE station pair; it doesn't derive a network
+        average the way energy_computation.md does for Cp/Eu/Er. They're
+        extended here the same way, by the same pairwise-average
+        identity, since both reduce to a product of two REAL,
+        non-negative per-station numbers:
+            Eu_abs uses  b_k = |x_k| = |d1k||d2k|
+            Er_abs uses  c_k = |d2k|/|d1k|
+
+        Fall-off frequency (ff) is only computed for 'cp': it relies on
+        a fixed cutoff against a quantity normalized to ~[0,1], which
+        Eu/Eu_abs/Er/Er_abs aren't -- their scale depends on actual
+        signal power, so a single fixed cutoff has no general meaning
+        for them.
+
+        :param    which:  measures to bootstrap, any of
+                              'cp','eu','eu_abs','er','er_abs'
+        :param     igrp:  station indices to draw from (default: self.igrp)
+        :param      tix:  taper indices to average first (default: self.tix)
+        :param     frac:  fraction of igrp kept per draw (default: 0.8)
+        :param    nboot:  number of bootstrap draws (default: 1000)
+        :param   cutoff:  Cp cutoff for fall-off frequency (default: 0.5)
+        :param  freqmin:  minimum allowed fall-off frequency
+                              (default: 2/window length via self.tlm;
+                              falls back to 2*self.freq[0])
+        :param      rng:  numpy.random.Generator (default: a fresh one)
+        :return  dict keyed by measure name -> dict with freq, point
+                 (all-igrp estimate), boot [Nf,nboot], nsub, navail
+                 (+ ff, ff_boot for 'cp')
+        """
+        if igrp is None:
+            igrp = self.igrp
+        igrp = np.asarray(igrp, dtype=int)
+        Navail = len(igrp)
+
+        if tix is None:
+            tix = self.tix
+        tix = np.asarray(tix, dtype=int)
+
+        if rng is None:
+            rng = np.random.default_rng()
+
+        if freqmin is None:
+            try:
+                freqmin = 2./np.diff(self.tlm)[0]
+            except Exception:
+                freqmin = 2.*self.freq[0]
+
+        Nf = len(self.freq)
+
+        if Navail < 2:
+            print('energy_bootstrap warning: only %d station(s) available -- '
+                  'need at least 2. Returning NaNs for %s.'
+                  % (Navail, ', '.join(which)))
+            out = {}
+            for name in which:
+                entry = dict(freq=self.freq, point=np.full(Nf, np.nan),
+                             boot=np.full((Nf, nboot), np.nan),
+                             nsub=Navail, navail=Navail)
+                if name == 'cp':
+                    entry['ff'] = np.nan
+                    entry['ff_boot'] = np.full(nboot, np.nan)
+                out[name] = entry
+            return out
+
+        nsub = int(np.floor(frac*Navail))
+        if nsub < 2:
+            print('energy_bootstrap warning: %d%% of %d available station(s) '
+                  'is only %d, not enough. Using all %d stations for every '
+                  'draw instead (bootstrap band will be zero-width).'
+                  % (frac*100, Navail, nsub, Navail))
+            nsub = Navail
+
+        # ----- per-station (Nf, Ns) array each measure needs, taper-averaged -----
+        xc_av = np.mean(np.asarray(self.xc)[:, :, tix], axis=2)
+        values = {}
+        if 'cp' in which:
+            values['cp'] = (xc_av/np.abs(xc_av), True)
+        if 'eu' in which:
+            values['eu'] = (xc_av, False)
+        if 'eu_abs' in which:
+            values['eu_abs'] = (np.abs(xc_av), False)          # b_k = |x_k| = |d1k||d2k|
+        if 'er' in which or 'er_abs' in which:
+            powr1_av = np.mean(np.asarray(self.powr)[:, :, tix, 0], axis=2)
+        if 'er' in which:
+            values['er'] = (xc_av/powr1_av, False)
+        if 'er_abs' in which:
+            powr2_av = np.mean(np.asarray(self.powr)[:, :, tix, 1], axis=2)
+            values['er_abs'] = (np.sqrt(powr2_av/powr1_av), False)   # c_k = |d2k|/|d1k|
+
+        def pairavg(v, ii, normalized):
+            n = len(ii)
+            walkout = np.abs(np.mean(v[:, ii], axis=1))
+            if normalized:
+                return (n*walkout**2 - 1.)/(n - 1.)
+            power = np.mean(np.abs(v[:, ii])**2, axis=1)
+            return (n*walkout**2 - power)/(n - 1.)
+
+        point = {name: pairavg(v, igrp, norm) for name, (v, norm) in values.items()}
+
+        boot = {name: np.empty((Nf, nboot)) for name in values}
+        for iboot in range(nboot):
+            ii = rng.choice(igrp, size=nsub, replace=False)   # ONE draw, shared across measures
+            for name, (v, norm) in values.items():
+                boot[name][:, iboot] = pairavg(v, ii, norm)
+
+        out = {}
+        for name in values:
+            entry = dict(freq=self.freq, point=point[name], boot=boot[name],
+                         nsub=nsub, navail=Navail)
+            if name == 'cp':
+                entry['ff'] = pickffreq(point[name], self.freq, cutoff, freqmin)[0]
+                entry['ff_boot'] = pickffreq(boot[name], self.freq, cutoff, freqmin)
+            out[name] = entry
+
+        self.energy_boot = out
+        return out
+
+
     def calcmvout(self,igrp=None):
         """
         to calculate moveout
@@ -2087,7 +2300,7 @@ def pickffreq(Cp,freq,cutoff,freqmin):
         if sml[k]==0:
             ffall[k] = freq[sml[k]]
         else:
-            ffall[k]=np.interp([0.5],np.flipud(Cp[sml[k]:(sml[k]+2),k]),
+            ffall[k]=np.interp(0.5,np.flipud(Cp[sml[k]:(sml[k]+2),k]),
                                np.flipud(np.log(freq[sml[k]:(sml[k]+2)])))
             ffall[k]=np.exp(ffall[k])
 
@@ -2367,131 +2580,74 @@ def fitcurve(freq,Cp,fmin=1,fmax=None,nnode=4):
 
     return tck,freq,prd
 
-#########################################################################
-################# Bootstrap for station-level uncertainties #############
-########################################################################
 
-def energy_bootstrap(self, which=('cp','eu','eu_abs','er','er_abs'),
-                      igrp=None, tix=None, frac=0.8, nboot=1000,
-                      cutoff=0.5, freqmin=None, rng=None):
+def plot_Cp_bootstrap(res, ci_level=95, savepath=None):
     """
-    Station-level bootstrap (without replacement) for any subset of
-    Cp, Eu, Eu_abs, Er, Er_abs. All requested measures share the SAME
-    random station subset on each draw, so they stay internally
-    consistent draw-to-draw rather than each re-randomizing separately.
+    Left: Cp(f) with a shaded bootstrap CI band and the fall-off
+    frequency marked. Right: histogram of the bootstrapped fall-off
+    frequency, with mean/median/std/CI annotated. Mirrors the layout
+    used in the stress-drop notebook's section 6.1.
 
-    Fall-off frequency (ff) is only computed for 'cp' -- it relies on
-    a fixed cutoff against a quantity normalized to ~[0,1], which
-    Eu/Eu_abs/Er/Er_abs aren't (their scale depends on actual signal
-    power), so a single fixed cutoff has no general meaning for them.
-
-    :param    which:  measures to bootstrap: any of
-                          'cp','eu','eu_abs','er','er_abs'
-    :param     igrp:  station indices to draw from (default: self.igrp)
-    :param      tix:  taper indices to average first (default: self.tix)
-    :param     frac:  fraction of igrp kept per draw (default: 0.8)
-    :param    nboot:  number of bootstrap draws (default: 1000)
-    :param   cutoff:  Cp cutoff for fall-off frequency (default: 0.5)
-    :param  freqmin:  minimum allowed fall-off frequency
-                          (default: 2/window length via self.tlm;
-                          falls back to 2*self.freq[0])
-    :param      rng:  numpy.random.Generator (default: a fresh one)
-    :return  dict keyed by measure name -> dict with freq, point
-             (all-igrp estimate), boot [Nf,nboot], nsub, navail
-             (+ ff, ff_boot for 'cp')
+    :param      res:  dict returned by xcross.Cp_bootstrap()
+    :param ci_level:  confidence level, in percent (default: 95)
+    :param savepath:  if given, save the figure here (dpi=600)
+    :return  fig, (ax1, ax2)
     """
-    if igrp is None:
-        igrp = self.igrp
-    igrp = np.asarray(igrp, dtype=int)
-    Navail = len(igrp)
+    freq, Cp_boot, Cp_point = res['freq'], res['Cp_boot'], res['Cp']
+    ff_boot = np.asarray(res['ff_boot'])
+    ff_boot = ff_boot[np.isfinite(ff_boot)]
+    ff_point, nsub, navail = res['ff'], res.get('nsub'), res.get('navail')
+    frac_label = f'{int(round(100*nsub/navail))}% of stations, ' if navail else ''
 
-    if tix is None:
-        tix = self.tix
-    tix = np.asarray(tix, dtype=int)
+    lo_pct, hi_pct = (100-ci_level)/2., 100-(100-ci_level)/2.
+    Cp_lo = np.nanpercentile(Cp_boot, lo_pct, axis=1)
+    Cp_hi = np.nanpercentile(Cp_boot, hi_pct, axis=1)
+    have_ff = ff_boot.size > 0
+    if have_ff:
+        ff_lo, ff_hi = np.percentile(ff_boot, [lo_pct, hi_pct])
+        ff_mean, ff_median = np.mean(ff_boot), np.median(ff_boot)
+        ff_std = np.std(ff_boot, ddof=1) if ff_boot.size > 1 else 0.
 
-    if rng is None:
-        rng = np.random.default_rng()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5))
+    plt.rcParams['font.family'] = 'Times New Roman'
 
-    if freqmin is None:
-        try:
-            freqmin = 2./np.diff(self.tlm)[0]
-        except Exception:
-            freqmin = 2.*self.freq[0]
+    ax1.fill_between(freq, Cp_lo, Cp_hi, color='mediumblue', alpha=0.2,
+                      label=f'{ci_level}% CI ({frac_label}n={Cp_boot.shape[1]})')
+    ax1.plot(freq, Cp_point, linewidth=2.0, color='mediumblue',
+              label='Coherence (all stations)')
+    ax1.set_xscale('log'); ax1.set_yscale('log')
+    ax1.set_xlim(np.min(freq), np.max(freq))
+    ax1.set_xlabel('Frequency (Hz)'); ax1.set_ylabel('Coherence Cp')
+    ax1.grid(True, which='both', ls='--')
+    ax1.axvline(ff_point, color='black', linestyle='--', label='fall-off frequency ($f_f$)')
+    if have_ff:
+        ax1.axvspan(ff_lo, ff_hi, color='grey', alpha=0.2, label=f'$f_f$ {ci_level}% CI')
+    ax1.legend(fontsize=10); ax1.set_title('Phase coherence')
 
-    Nf = len(self.freq)
+    if have_ff:
+        ax2.hist(ff_boot, bins=20, color='mediumblue', alpha=0.6, edgecolor='black')
+        ax2.axvline(ff_point, color='black', linestyle='--', linewidth=2,
+                    label='$f_f$ (no bootstrap, all stations)')
+        ax2.axvline(ff_mean, color='darkorange', linestyle='-', linewidth=1.5,
+                    label=f'$f_f$ bootstrap mean ({frac_label}stations)')
+        ax2.axvspan(ff_lo, ff_hi, color='grey', alpha=0.25, label=f'{ci_level}% CI (percentile)')
+        ax2.set_xlabel('Fall-off frequency (Hz)'); ax2.set_ylabel('Count')
+        ax2.set_title('Bootstrap fall-off frequency'); ax2.legend(fontsize=10)
+        stats_txt = (f'n = {ff_boot.size}\nmean = {ff_mean:.3f} Hz\n'
+                     f'median = {ff_median:.3f} Hz\nstd = {ff_std:.3f} Hz\n'
+                     f'{ci_level}% CI = [{ff_lo:.3f}, {ff_hi:.3f}]\n')
+        ax2.text(0.98, 0.97, stats_txt, transform=ax2.transAxes, fontsize=10,
+                  va='top', ha='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    else:
+        ax2.text(0.5, 0.5, 'No successful\nfall-off frequency picks',
+                  ha='center', va='center', transform=ax2.transAxes)
+        ax2.set_axis_off()
 
-    if Navail < 2:
-        print('energy_bootstrap warning: only %d station(s) available -- '
-              'need at least 2. Returning NaNs for %s.'
-              % (Navail, ', '.join(which)))
-        out = {}
-        for name in which:
-            entry = dict(freq=self.freq, point=np.full(Nf, np.nan),
-                         boot=np.full((Nf, nboot), np.nan),
-                         nsub=Navail, navail=Navail)
-            if name == 'cp':
-                entry['ff'] = np.nan
-                entry['ff_boot'] = np.full(nboot, np.nan)
-            out[name] = entry
-        return out
+    plt.tight_layout()
+    if savepath is not None:
+        plt.savefig(savepath, dpi=600)
+    return fig, (ax1, ax2)
 
-    nsub = int(np.floor(frac*Navail))
-    if nsub < 2:
-        print('energy_bootstrap warning: %d%% of %d available station(s) '
-              'is only %d, not enough. Using all %d stations for every '
-              'draw instead (bootstrap band will be zero-width).'
-              % (frac*100, Navail, nsub, Navail))
-        nsub = Navail
-
-    # ----- per-station (Nf, Ns) array each measure needs, taper-averaged -----
-    xc_av = np.mean(np.asarray(self.xc)[:, :, tix], axis=2)
-    values = {}
-    if 'cp' in which:
-        values['cp'] = (xc_av/np.abs(xc_av), True)
-    if 'eu' in which:
-        values['eu'] = (xc_av, False)
-    if 'eu_abs' in which:
-        values['eu_abs'] = (np.abs(xc_av), False)          # b_k = |x_k| = |d1k||d2k|
-    if 'er' in which or 'er_abs' in which:
-        powr1_av = np.mean(np.asarray(self.powr)[:, :, tix, 0], axis=2)
-    if 'er' in which:
-        values['er'] = (xc_av/powr1_av, False)
-    if 'er_abs' in which:
-        powr2_av = np.mean(np.asarray(self.powr)[:, :, tix, 1], axis=2)
-        values['er_abs'] = (np.sqrt(powr2_av/powr1_av), False)   # c_k = |d2k|/|d1k|
-
-    def pairavg(v, ii, normalized):
-        n = len(ii)
-        walkout = np.abs(np.mean(v[:, ii], axis=1))
-        if normalized:
-            return (n*walkout**2 - 1.)/(n - 1.)
-        power = np.mean(np.abs(v[:, ii])**2, axis=1)
-        return (n*walkout**2 - power)/(n - 1.)
-
-    point = {name: pairavg(v, igrp, norm) for name, (v, norm) in values.items()}
-
-    boot = {name: np.empty((Nf, nboot)) for name in values}
-    for iboot in range(nboot):
-        ii = rng.choice(igrp, size=nsub, replace=False)   # ONE draw, shared across measures
-        for name, (v, norm) in values.items():
-            boot[name][:, iboot] = pairavg(v, ii, norm)
-
-    out = {}
-    for name in values:
-        entry = dict(freq=self.freq, point=point[name], boot=boot[name],
-                     nsub=nsub, navail=Navail)
-        if name == 'cp':
-            entry['ff'] = pickffreq(point[name], self.freq, cutoff, freqmin)[0]
-            entry['ff_boot'] = pickffreq(boot[name], self.freq, cutoff, freqmin)
-        out[name] = entry
-
-    self.energy_boot = out
-    return out
-
-
-#########################################################################
-################# Bootstrap plotting #############
-########################################################################
 
 _YSCALE = dict(cp='log', eu='linear', eu_abs='log', er='linear', er_abs='linear')
 _YLABEL = dict(cp='Coherence $C_p$', eu='$E_u$', eu_abs='$E_u^{abs}$',
@@ -2503,6 +2659,12 @@ def plot_energy_bootstrap(res, which=None, ci_level=95, savepath=None):
     stations) with a shaded bootstrap CI band. For 'cp' the fall-off
     frequency is marked too (use plot_Cp_bootstrap for the dedicated
     two-panel version with the fall-off frequency histogram).
+
+    :param      res:  dict returned by xcross.energy_bootstrap()
+    :param    which:  measures to plot (default: everything in res)
+    :param ci_level:  confidence level, in percent (default: 95)
+    :param savepath:  if given, save the figure here (dpi=600)
+    :return  fig, axes
     """
     if which is None:
         which = list(res.keys())
