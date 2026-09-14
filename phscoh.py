@@ -6,6 +6,7 @@ import general
 import obspy
 import spectrum
 from scipy.interpolate import splrep,splev
+import matplotlib.pyplot as plt
 #from scipy.windows import hann
 
 def calcxc(st1,st2=None,trange=None,mk1='t0',mk2=None,
@@ -2365,3 +2366,173 @@ def fitcurve(freq,Cp,fmin=1,fmax=None,nnode=4):
             prd[ii]=(f2i-lfreq[ii])/(f2i-f1i)
 
     return tck,freq,prd
+
+#########################################################################
+################# Bootstrap for station-level uncertainties #############
+########################################################################
+
+def energy_bootstrap(self, which=('cp','eu','eu_abs','er','er_abs'),
+                      igrp=None, tix=None, frac=0.8, nboot=1000,
+                      cutoff=0.5, freqmin=None, rng=None):
+    """
+    Station-level bootstrap (without replacement) for any subset of
+    Cp, Eu, Eu_abs, Er, Er_abs. All requested measures share the SAME
+    random station subset on each draw, so they stay internally
+    consistent draw-to-draw rather than each re-randomizing separately.
+
+    Fall-off frequency (ff) is only computed for 'cp' -- it relies on
+    a fixed cutoff against a quantity normalized to ~[0,1], which
+    Eu/Eu_abs/Er/Er_abs aren't (their scale depends on actual signal
+    power), so a single fixed cutoff has no general meaning for them.
+
+    :param    which:  measures to bootstrap: any of
+                          'cp','eu','eu_abs','er','er_abs'
+    :param     igrp:  station indices to draw from (default: self.igrp)
+    :param      tix:  taper indices to average first (default: self.tix)
+    :param     frac:  fraction of igrp kept per draw (default: 0.8)
+    :param    nboot:  number of bootstrap draws (default: 1000)
+    :param   cutoff:  Cp cutoff for fall-off frequency (default: 0.5)
+    :param  freqmin:  minimum allowed fall-off frequency
+                          (default: 2/window length via self.tlm;
+                          falls back to 2*self.freq[0])
+    :param      rng:  numpy.random.Generator (default: a fresh one)
+    :return  dict keyed by measure name -> dict with freq, point
+             (all-igrp estimate), boot [Nf,nboot], nsub, navail
+             (+ ff, ff_boot for 'cp')
+    """
+    if igrp is None:
+        igrp = self.igrp
+    igrp = np.asarray(igrp, dtype=int)
+    Navail = len(igrp)
+
+    if tix is None:
+        tix = self.tix
+    tix = np.asarray(tix, dtype=int)
+
+    if rng is None:
+        rng = np.random.default_rng()
+
+    if freqmin is None:
+        try:
+            freqmin = 2./np.diff(self.tlm)[0]
+        except Exception:
+            freqmin = 2.*self.freq[0]
+
+    Nf = len(self.freq)
+
+    if Navail < 2:
+        print('energy_bootstrap warning: only %d station(s) available -- '
+              'need at least 2. Returning NaNs for %s.'
+              % (Navail, ', '.join(which)))
+        out = {}
+        for name in which:
+            entry = dict(freq=self.freq, point=np.full(Nf, np.nan),
+                         boot=np.full((Nf, nboot), np.nan),
+                         nsub=Navail, navail=Navail)
+            if name == 'cp':
+                entry['ff'] = np.nan
+                entry['ff_boot'] = np.full(nboot, np.nan)
+            out[name] = entry
+        return out
+
+    nsub = int(np.floor(frac*Navail))
+    if nsub < 2:
+        print('energy_bootstrap warning: %d%% of %d available station(s) '
+              'is only %d, not enough. Using all %d stations for every '
+              'draw instead (bootstrap band will be zero-width).'
+              % (frac*100, Navail, nsub, Navail))
+        nsub = Navail
+
+    # ----- per-station (Nf, Ns) array each measure needs, taper-averaged -----
+    xc_av = np.mean(np.asarray(self.xc)[:, :, tix], axis=2)
+    values = {}
+    if 'cp' in which:
+        values['cp'] = (xc_av/np.abs(xc_av), True)
+    if 'eu' in which:
+        values['eu'] = (xc_av, False)
+    if 'eu_abs' in which:
+        values['eu_abs'] = (np.abs(xc_av), False)          # b_k = |x_k| = |d1k||d2k|
+    if 'er' in which or 'er_abs' in which:
+        powr1_av = np.mean(np.asarray(self.powr)[:, :, tix, 0], axis=2)
+    if 'er' in which:
+        values['er'] = (xc_av/powr1_av, False)
+    if 'er_abs' in which:
+        powr2_av = np.mean(np.asarray(self.powr)[:, :, tix, 1], axis=2)
+        values['er_abs'] = (np.sqrt(powr2_av/powr1_av), False)   # c_k = |d2k|/|d1k|
+
+    def pairavg(v, ii, normalized):
+        n = len(ii)
+        walkout = np.abs(np.mean(v[:, ii], axis=1))
+        if normalized:
+            return (n*walkout**2 - 1.)/(n - 1.)
+        power = np.mean(np.abs(v[:, ii])**2, axis=1)
+        return (n*walkout**2 - power)/(n - 1.)
+
+    point = {name: pairavg(v, igrp, norm) for name, (v, norm) in values.items()}
+
+    boot = {name: np.empty((Nf, nboot)) for name in values}
+    for iboot in range(nboot):
+        ii = rng.choice(igrp, size=nsub, replace=False)   # ONE draw, shared across measures
+        for name, (v, norm) in values.items():
+            boot[name][:, iboot] = pairavg(v, ii, norm)
+
+    out = {}
+    for name in values:
+        entry = dict(freq=self.freq, point=point[name], boot=boot[name],
+                     nsub=nsub, navail=Navail)
+        if name == 'cp':
+            entry['ff'] = pickffreq(point[name], self.freq, cutoff, freqmin)[0]
+            entry['ff_boot'] = pickffreq(boot[name], self.freq, cutoff, freqmin)
+        out[name] = entry
+
+    self.energy_boot = out
+    return out
+
+
+#########################################################################
+################# Bootstrap plotting #############
+########################################################################
+
+_YSCALE = dict(cp='log', eu='linear', eu_abs='log', er='linear', er_abs='linear')
+_YLABEL = dict(cp='Coherence $C_p$', eu='$E_u$', eu_abs='$E_u^{abs}$',
+               er='$E_r$', er_abs='$E_r^{abs}$')
+
+def plot_energy_bootstrap(res, which=None, ci_level=95, savepath=None):
+    """
+    One panel per bootstrapped measure: point-estimate curve (all
+    stations) with a shaded bootstrap CI band. For 'cp' the fall-off
+    frequency is marked too (use plot_Cp_bootstrap for the dedicated
+    two-panel version with the fall-off frequency histogram).
+    """
+    if which is None:
+        which = list(res.keys())
+    lo_pct, hi_pct = (100-ci_level)/2., 100-(100-ci_level)/2.
+
+    fig, axes = plt.subplots(1, len(which), figsize=(5*len(which), 4.5))
+    axes = np.atleast_1d(axes)
+    plt.rcParams['font.family'] = 'Times New Roman'
+
+    for ax, name in zip(axes, which):
+        entry = res[name]
+        freq, point, boot = entry['freq'], entry['point'], entry['boot']
+        lo = np.nanpercentile(boot, lo_pct, axis=1)
+        hi = np.nanpercentile(boot, hi_pct, axis=1)
+
+        ax.fill_between(freq, lo, hi, color='mediumblue', alpha=0.2,
+                          label=f'{ci_level}% CI (n={boot.shape[1]})')
+        ax.plot(freq, point, linewidth=2.0, color='mediumblue', label='all stations')
+        ax.set_xscale('log')
+        ax.set_yscale(_YSCALE.get(name, 'linear'))
+        ax.set_xlim(np.min(freq), np.max(freq))
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel(_YLABEL.get(name, name))
+        ax.grid(True, which='both', ls='--')
+        if name == 'cp' and 'ff' in entry:
+            ax.axvline(entry['ff'], color='black', linestyle='--', label='$f_f$')
+        ax.legend(fontsize=9)
+        ax.set_title(_YLABEL.get(name, name))
+
+    plt.tight_layout()
+    if savepath is not None:
+        plt.savefig(savepath, dpi=600)
+    return fig, axes
